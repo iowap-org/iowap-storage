@@ -28,46 +28,155 @@ capabilities:
     handler: /app/handlers/store.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Write a file to the NAS. Supports inline base64 data or streaming a relay artifact. Optionally unpack a .tar.gz (action: extract)."
+    input_schema:
+      fields:
+        path:
+          name: path
+          type: string
+          required: true
+          description: "Target path relative to the storage root, e.g. 'projects/2026/file.png'."
+        data_base64:
+          name: data_base64
+          type: string
+          required: false
+          description: "File content as base64 (small files). Mutually exclusive with artifact_id."
+        artifact_id:
+          name: artifact_id
+          type: string
+          required: false
+          description: "Relay artifact ID to stream down (large files). Mutually exclusive with data_base64."
+        action:
+          name: action
+          type: string
+          required: false
+          description: "store_as_is (default) or extract (unpack a .tar.gz into a directory)."
+
   - name: storage.fetch
     version: "1.0.0"
     handler: /app/handlers/fetch.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Read a file back from the NAS as base64 (small files)."
+    input_schema:
+      fields:
+        path:
+          name: path
+          type: string
+          required: true
+          description: "Path of the file to read, relative to the storage root."
+
   - name: storage.delete
     version: "1.0.0"
     handler: /app/handlers/delete.py
     claimable: true
     timeout: 120
+    type: native
+    description: "Delete a file or directory (recursive)."
+    input_schema:
+      fields:
+        path:
+          name: path
+          type: string
+          required: true
+          description: "Path to delete, relative to the storage root."
+
   - name: storage.list
     version: "1.0.0"
     handler: /app/handlers/list.py
     claimable: true
     timeout: 120
+    type: native
+    description: "List files under a prefix."
+    input_schema:
+      fields:
+        prefix:
+          name: prefix
+          type: string
+          required: false
+          description: "Prefix to list under (empty = whole storage root)."
+
   - name: storage.quota
     version: "1.0.0"
     handler: /app/handlers/quota.py
     claimable: true
     timeout: 60
+    type: native
+    description: "Report disk usage + threshold (RELAY_STORAGE_QUOTA_THRESHOLD, default 0.9)."
+    input_schema:
+      fields: {}
+
   - name: storage.stat
     version: "1.0.0"
     handler: /app/handlers/stat.py
     claimable: true
     timeout: 60
+    type: native
+    description: "Stat a single path (size, mtime, is_dir)."
+    input_schema:
+      fields:
+        path:
+          name: path
+          type: string
+          required: true
+          description: "Path to stat, relative to the storage root."
+
   - name: storage.move
     version: "1.0.0"
     handler: /app/handlers/move.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Rename/move a file or directory."
+    input_schema:
+      fields:
+        from:
+          name: from
+          type: string
+          required: true
+          description: "Source path, relative to the storage root."
+        to:
+          name: to
+          type: string
+          required: true
+          description: "Destination path, relative to the storage root."
+
   - name: storage.extract
     version: "1.0.0"
     handler: /app/handlers/extract.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Unpack a stored .tar.gz into a directory (T-135)."
+    input_schema:
+      fields:
+        path:
+          name: path
+          type: string
+          required: true
+          description: "Path of the .tar.gz to unpack, relative to the storage root."
+
   - name: storage.archive
     version: "1.0.0"
     handler: /app/handlers/archive.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Pack a directory into a .tar.gz (T-135)."
+    input_schema:
+      fields:
+        path:
+          name: path
+          type: string
+          required: true
+          description: "Source directory to pack, relative to the storage root."
+        target:
+          name: target
+          type: string
+          required: true
+          description: "Destination .tar.gz path, relative to the storage root."
 
   # --- bridge upload/download channels (T-129) ---
   # These capabilities register a *temporary bridge route* on the relay
@@ -82,11 +191,30 @@ capabilities:
     handler: /app/handlers/upload_channel.py
     claimable: true
     timeout: 3600
+    type: native
+    description: "Open a temp bridge route so a caller can stream a large file TO the NAS through the relay."
+    input_schema:
+      fields:
+        channel_id:
+          name: channel_id
+          type: string
+          required: false
+          description: "Optional channel id; minted when absent."
+
   - name: storage.download_channel
     version: "1.0.0"
     handler: /app/handlers/download_channel.py
     claimable: true
     timeout: 3600
+    type: native
+    description: "Open a temp bridge route so a caller can stream a large file FROM the NAS through the relay."
+    input_schema:
+      fields:
+        channel_id:
+          name: channel_id
+          type: string
+          required: false
+          description: "Optional channel id; minted when absent."
 
   # --- backup management (T-130/T-131/T-132) ---
   - name: backup.create
@@ -94,28 +222,117 @@ capabilities:
     handler: /app/handlers/backup_create.py
     claimable: true
     timeout: 3600
+    type: native
+    description: "Declare an upload as a versioned backup (full or incremental)."
+    input_schema:
+      fields:
+        source:
+          name: source
+          type: string
+          required: true
+          description: "Logical source name, e.g. 'projects' or 'photos'."
+        type:
+          name: type
+          type: string
+          required: true
+          description: "full or incremental."
+        base_backup_id:
+          name: base_backup_id
+          type: string
+          required: false
+          description: "For incremental: the base backup it builds on."
+        data_base64:
+          name: data_base64
+          type: string
+          required: false
+          description: "Backup payload as base64 (small backups)."
+        artifact_id:
+          name: artifact_id
+          type: string
+          required: false
+          description: "Relay artifact ID to stream down (large backups)."
+
   - name: backup.list
     version: "1.0.0"
     handler: /app/handlers/backup_list.py
     claimable: true
     timeout: 120
+    type: native
+    description: "List backups, optionally filtered by source/type."
+    input_schema:
+      fields:
+        source:
+          name: source
+          type: string
+          required: false
+          description: "Filter by source name."
+        type:
+          name: type
+          type: string
+          required: false
+          description: "Filter by type (full/incremental)."
+
   - name: backup.info
     version: "1.0.0"
     handler: /app/handlers/backup_info.py
     claimable: true
     timeout: 60
+    type: native
+    description: "Return the manifest of a single backup."
+    input_schema:
+      fields:
+        backup_id:
+          name: backup_id
+          type: string
+          required: true
+          description: "The backup id (bk_...)."
+
   - name: backup.restore
     version: "1.0.0"
     handler: /app/handlers/backup_restore.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Return a backup's data (inline base64 for small backups)."
+    input_schema:
+      fields:
+        backup_id:
+          name: backup_id
+          type: string
+          required: true
+          description: "The backup id (bk_...)."
+
   - name: backup.delete
     version: "1.0.0"
     handler: /app/handlers/backup_delete.py
     claimable: true
     timeout: 120
+    type: native
+    description: "Mark a backup deleted (manifest kept for audit, data removed)."
+    input_schema:
+      fields:
+        backup_id:
+          name: backup_id
+          type: string
+          required: true
+          description: "The backup id (bk_...)."
+
   - name: backup.retention
     version: "1.0.0"
     handler: /app/handlers/backup_retention.py
     claimable: true
     timeout: 300
+    type: native
+    description: "Apply a retention policy to a source (keep_last / max_age_days / GFS)."
+    input_schema:
+      fields:
+        source:
+          name: source
+          type: string
+          required: true
+          description: "Source name to apply the policy to."
+        policy:
+          name: policy
+          type: object
+          required: true
+          description: "Retention policy: {keep_last: N}, {max_age_days: N}, or GFS {keep_daily, keep_weekly, keep_monthly}."
