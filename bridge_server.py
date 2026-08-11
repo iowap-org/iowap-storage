@@ -27,7 +27,7 @@ import logging
 import os
 import socket
 from pathlib import Path
-from typing import Awaitable, Callable, Iterator
+from typing import AsyncIterator, Awaitable, Callable, Iterator
 from urllib.parse import urlparse
 
 from starlette.applications import Starlette
@@ -183,7 +183,12 @@ async def download_channel(request: Request) -> Response:
         return JSONResponse({"error": "not found"}, status_code=404)
     size = target.stat().st_size
 
-    def _iter() -> "Iterator[bytes]":
+    async def _iter() -> "AsyncIterator[bytes]":
+        # T-156: async generator (NOT sync). A sync generator in a
+        # StreamingResponse breaks under an httpx/uvicorn proxy — the
+        # upstream stream aborts with httpx.ReadError and the caller sees
+        # a Content-Length header but an empty body. An async generator
+        # streams cleanly through the relay proxy.
         with target.open("rb") as f:
             while True:
                 buf = f.read(_CHUNK)
