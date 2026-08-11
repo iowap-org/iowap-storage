@@ -1,0 +1,121 @@
+# Storage node capability profile (Plan B — T-127/T-129).
+#
+# Declares the storage capabilities the node advertises to the relay. The
+# core handlers (storage.store / fetch / delete / list / quota / stat /
+# move) are real Python scripts in docker/nodes/storage/handlers/ — they read
+# a JSON stage payload on stdin and write a JSON result on stdout; see
+# nodes/common/handler_runner.py.
+#
+#   storage.store / fetch / delete / list / quota / stat / move
+#   storage.upload_channel / download_channel — register a temp bridge
+#     route on the relay (T-129) so large files stream directly
+#     storage<->caller instead of through the relay. The handler opens
+#     the route and completes the task with the bridge URL.
+#   backup.*                                   (Plan C)
+#
+# Handler paths are absolute and point at the handlers/ directory copied
+# into the image at /app/handlers/. Each handler is an executable Python
+# script (with a #! line) so handler_runner's shell=True runs them
+# directly via the shebang.
+
+node_name: storage-node
+description: "NAS-backed storage service node"
+
+capabilities:
+  # --- core storage ops (T-127) ---
+  - name: storage.store
+    version: "1.0.0"
+    handler: /app/handlers/store.py
+    claimable: true
+    timeout: 300
+  - name: storage.fetch
+    version: "1.0.0"
+    handler: /app/handlers/fetch.py
+    claimable: true
+    timeout: 300
+  - name: storage.delete
+    version: "1.0.0"
+    handler: /app/handlers/delete.py
+    claimable: true
+    timeout: 120
+  - name: storage.list
+    version: "1.0.0"
+    handler: /app/handlers/list.py
+    claimable: true
+    timeout: 120
+  - name: storage.quota
+    version: "1.0.0"
+    handler: /app/handlers/quota.py
+    claimable: true
+    timeout: 60
+  - name: storage.stat
+    version: "1.0.0"
+    handler: /app/handlers/stat.py
+    claimable: true
+    timeout: 60
+  - name: storage.move
+    version: "1.0.0"
+    handler: /app/handlers/move.py
+    claimable: true
+    timeout: 300
+  - name: storage.extract
+    version: "1.0.0"
+    handler: /app/handlers/extract.py
+    claimable: true
+    timeout: 300
+  - name: storage.archive
+    version: "1.0.0"
+    handler: /app/handlers/archive.py
+    claimable: true
+    timeout: 300
+
+  # --- bridge upload/download channels (T-129) ---
+  # These capabilities register a *temporary bridge route* on the relay
+  # (T-124) so large files stream directly storage<->caller instead of
+  # through the relay. The handler runs as a claimable task: it opens a
+  # temp route pointing at the bridge_server (T-128) and completes the
+  # task with {upload_url/download_url, channel_id, ttl} so the caller
+  # can stream the file through the relay proxy (which streams, not
+  # buffers, in T-129).
+  - name: storage.upload_channel
+    version: "1.0.0"
+    handler: /app/handlers/upload_channel.py
+    claimable: true
+    timeout: 3600
+  - name: storage.download_channel
+    version: "1.0.0"
+    handler: /app/handlers/download_channel.py
+    claimable: true
+    timeout: 3600
+
+  # --- backup management (T-130/T-131/T-132) ---
+  - name: backup.create
+    version: "1.0.0"
+    handler: /app/handlers/backup_create.py
+    claimable: true
+    timeout: 3600
+  - name: backup.list
+    version: "1.0.0"
+    handler: /app/handlers/backup_list.py
+    claimable: true
+    timeout: 120
+  - name: backup.info
+    version: "1.0.0"
+    handler: /app/handlers/backup_info.py
+    claimable: true
+    timeout: 60
+  - name: backup.restore
+    version: "1.0.0"
+    handler: /app/handlers/backup_restore.py
+    claimable: true
+    timeout: 300
+  - name: backup.delete
+    version: "1.0.0"
+    handler: /app/handlers/backup_delete.py
+    claimable: true
+    timeout: 120
+  - name: backup.retention
+    version: "1.0.0"
+    handler: /app/handlers/backup_retention.py
+    claimable: true
+    timeout: 300
