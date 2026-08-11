@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _common import _emit, _fail, _read_payload, _require  # noqa: E402
+from _common import _emit, _fail, _read_payload, _require, _bridge_upstream_base  # noqa: E402
 
 _DEFAULT_TTL = 3600
 
@@ -42,11 +42,10 @@ def main() -> None:
     if not base_url or not token_file or not node_id:
         _fail("download_channel requires RELAY_BASE_URL, RELAY_TOKEN_FILE, RELAY_NODE_ID")
 
-    node_endpoint = os.environ.get("NODE_ENDPOINT", "").strip()
-    if node_endpoint:
-        upstream_base = node_endpoint.rstrip("/")
-    else:
-        upstream_base = f"http://localhost:{os.environ.get('BRIDGE_PORT', '8791')}"
+    # The bridge server upstream: same host as the node's own reachable IP,
+    # port BRIDGE_PORT. Derived automatically (the node knows its own IP)
+    # unless the operator overrides with NODE_ENDPOINT.
+    upstream_base = _bridge_upstream_base()
 
     upstream = f"{upstream_base}/download/{channel_id}"
     path = f"/download/{channel_id}"

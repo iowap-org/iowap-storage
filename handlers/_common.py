@@ -20,6 +20,40 @@ from typing import Any
 STORAGE_PATH = Path(os.environ.get("RELAY_STORAGE_PATH", "/storage"))
 
 
+def _local_ip() -> str:
+    """Best-effort local IPv4 of this host (no packets sent).
+
+    Uses the classic UDP-connect trick: connecting a UDP socket to a
+    non-routable address makes the kernel pick the outbound interface
+    without sending anything. Falls back to ``127.0.0.1``.
+    """
+    import socket  # noqa: PLC0415
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            return s.getsockname()[0]
+        finally:
+            s.close()
+    except OSError:
+        return "127.0.0.1"
+
+
+def _bridge_upstream_base() -> str:
+    """Resolve the bridge-server upstream base the relay should reach.
+
+    Prefers an explicit ``NODE_ENDPOINT`` (operator override), else derives
+    the node's own reachable IP + ``BRIDGE_PORT``. This removes the need to
+    set ``NODE_ENDPOINT`` in the docker env — the node knows its own IP.
+    """
+    node_endpoint = os.environ.get("NODE_ENDPOINT", "").strip()
+    if node_endpoint:
+        return node_endpoint.rstrip("/")
+    port = os.environ.get("BRIDGE_PORT", "8791")
+    return f"http://{_local_ip()}:{port}"
+
+
 def _safe_path(target_path: str | None, base: Path = STORAGE_PATH) -> Path:
     """Resolve ``target_path`` relative to ``base`` and reject escapes.
 

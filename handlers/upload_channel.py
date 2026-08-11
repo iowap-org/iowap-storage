@@ -33,7 +33,7 @@ from pathlib import Path
 # Allow importing _common.py from the handlers dir.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _common import _emit, _fail, _read_payload  # noqa: E402
+from _common import _emit, _fail, _read_payload, _bridge_upstream_base  # noqa: E402
 
 # Default TTL the route stays open for the caller to upload through.
 _DEFAULT_TTL = 3600
@@ -53,16 +53,12 @@ def main() -> None:
     if not base_url or not token_file or not node_id:
         _fail("upload_channel requires RELAY_BASE_URL, RELAY_TOKEN_FILE, RELAY_NODE_ID")
 
-    # The bridge server upstream: same host as NODE_ENDPOINT, port BRIDGE_PORT.
-    # The bridge server listens on 0.0.0.0:BRIDGE_PORT; the relay reaches it
-    # via the node's reachable endpoint. We derive the upstream host from
-    # NODE_ENDPOINT when set, falling back to localhost (same-pod).
-    node_endpoint = os.environ.get("NODE_ENDPOINT", "").strip()
-    if node_endpoint:
-        # e.g. http://storage-node:8791 -> reuse as the upstream base.
-        upstream_base = node_endpoint.rstrip("/")
-    else:
-        upstream_base = f"http://localhost:{os.environ.get('BRIDGE_PORT', '8791')}"
+    # The bridge server upstream: same host as the node's own reachable IP,
+    # port BRIDGE_PORT. The bridge server listens on 0.0.0.0:BRIDGE_PORT; the
+    # relay reaches it via the node's reachable endpoint. We derive the
+    # upstream host automatically (the node knows its own IP) unless the
+    # operator overrides with NODE_ENDPOINT.
+    upstream_base = _bridge_upstream_base()
 
     upstream = f"{upstream_base}/upload/{channel_id}"
     path = f"/upload/{channel_id}"
