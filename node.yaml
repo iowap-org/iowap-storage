@@ -148,6 +148,7 @@ capabilities:
     handler: /app/handlers/extract.py
     claimable: true
     timeout: 300
+    long_run: true
     type: native
     description: "Unpack a stored .tar.gz into a directory (T-135)."
     input_schema:
@@ -163,6 +164,7 @@ capabilities:
     handler: /app/handlers/archive.py
     claimable: true
     timeout: 300
+    long_run: true
     type: native
     description: "Pack a directory into a .tar.gz (T-135)."
     input_schema:
