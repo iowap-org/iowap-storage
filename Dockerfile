@@ -56,8 +56,12 @@ ENV NODE_PROFILE=storage \
 
 # Where the storage handlers read/write files. Bind-mount this to your NAS
 # export. Created at runtime by the handlers; we pre-create it so a bind
-# mount lands on an existing dir owned by appuser.
+# mount lands on an existing dir owned by appuser. The base image already
+# switched to USER appuser, so we temporarily become root to create /storage
+# (a root-owned path), then drop back to appuser.
+USER root
 RUN mkdir -p "${STORAGE_PATH}" && chown -R appuser:appuser "${STORAGE_PATH}"
+USER appuser
 
 # Healthcheck inherited from the base image (reads the daemon status file).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
