@@ -32,10 +32,12 @@ ENV NODE_PORT=8791 \
 
 WORKDIR /app
 
-# Copy the storage node's capability profile + handlers. The base image's
-# entrypoint reads ~/.relay/node.yaml — we place the profile in profiles.d
-# and let NODE_PROFILE=storage publish it on first start.
-COPY --chown=appuser:appuser docker/nodes/storage/node.yaml /home/appuser/.relay/profiles.d/storage.yaml
+# Copy the storage node's capability profile + handlers. The profile is
+# placed in the IMAGE (not the persistent ~/.relay volume) so an image
+# update ships a fresh capability set; the base entrypoint copies it to
+# ~/.relay/node.yaml on every start (T-163: long_run flag was missing on
+# the QNAP node because the old profile lived in the persistent volume).
+COPY --chown=appuser:appuser docker/nodes/storage/node.yaml /app/profiles/storage.yaml
 COPY --chown=appuser:appuser docker/nodes/storage/handlers/ /app/handlers/
 # The bridge server (T-128) is the HTTP server the relay proxies
 # upload/download channel requests to. It runs alongside node-daemon.
