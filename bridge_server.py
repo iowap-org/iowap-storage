@@ -73,6 +73,19 @@ def _resolve_server_ip() -> str | None:
         return explicit.strip()
     relay_url = os.environ.get("RELAY_URL") or os.environ.get("RELAY_BASE_URL")
     if not relay_url:
+        # T-152: RELAY_URL is optional — the node discovers the relay via
+        # mDNS. Reuse the same discovery so the bridge allowlist gets the
+        # relay IP even when the operator never set RELAY_URL. Without this
+        # the allowlist would be empty and every bridge request 403s
+        # (fail-closed) in an mDNS-only deployment.
+        try:
+            from nodes.common.relay_client import _discover_relay_mdns as _mdns  # noqa: PLC0415
+            discovered = _mdns(timeout=2.0)
+            if discovered:
+                relay_url = discovered
+        except Exception:  # noqa: BLE001 — discovery is best-effort
+            pass
+    if not relay_url:
         return None
     host = urlparse(relay_url).hostname
     if not host:
