@@ -228,6 +228,11 @@ capabilities:
     description: "Declare an upload as a versioned backup (full or incremental)."
     input_schema:
       fields:
+        mode:
+          name: mode
+          type: string
+          required: false
+          description: "inline (default) | bridge. 'bridge' opens a temp upload route so the caller streams the large backup straight to backups/<id>/data.bin (no artifact staging)."
         source:
           name: source
           type: string
@@ -295,7 +300,7 @@ capabilities:
     claimable: true
     timeout: 300
     type: native
-    description: "Return a backup's data (inline base64 for small backups)."
+    description: "Return a backup's data — inline base64 for small backups, or a temp bridge download_url for large ones (>10MB)."
     input_schema:
       fields:
         backup_id:

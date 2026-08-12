@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _common import _emit, _fail, _read_payload, _require  # noqa: E402
-from backup_common import backup_dir, read_manifest  # noqa: E402
+from backup_common import backup_dir, open_backup_bridge_route, read_manifest  # noqa: E402
 
 # Inline payload cap — above this we'd need a bridge route (future).
 _INLINE_CAP = 10 * 1024 * 1024  # 10 MB
@@ -34,12 +34,20 @@ def main() -> None:
         _fail(f"backup data missing: {backup_id}")
     size = data_file.stat().st_size
     if size > _INLINE_CAP:
+        # Large backup — open a temp bridge route so the caller streams
+        # the data.bin directly (no inline base64, no artifact staging).
+        download_url = open_backup_bridge_route(
+            backup_id,
+            method="GET",
+            description="backup.restore bridge download (T-154)",
+        )
         _emit(
             {
                 "status": "restored",
                 "backup_id": backup_id,
                 "size_bytes": size,
-                "download_url": None,  # bridge route in a later task
+                "mode": "bridge",
+                "download_url": download_url,
             }
         )
     data = data_file.read_bytes()

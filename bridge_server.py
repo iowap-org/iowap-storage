@@ -42,6 +42,7 @@ log = logging.getLogger("bridge-server")
 # Base directory for channel files (under the storage tree).
 STORAGE_PATH = Path(os.environ.get("RELAY_STORAGE_PATH", "/storage"))
 CHANNELS_DIR = STORAGE_PATH / "channels"
+BACKUPS_DIR = STORAGE_PATH / "backups"
 BRIDGE_PORT = int(os.environ.get("BRIDGE_PORT", "8791"))
 
 # Chunk size for streaming reads/writes — keep memory bounded for large
@@ -153,6 +154,19 @@ def _channel_path(channel_id: str) -> Path:
     return CHANNELS_DIR / channel_id
 
 
+def _backup_data_path(backup_id: str) -> Path:
+    """Resolve the on-disk ``data.bin`` path for a backup id.
+
+    The backup_id is used as a single path segment under ``backups/``
+    (mirrors ``backup_common.backup_dir``). Rejects any id that is not a
+    plain segment so a crafted id cannot escape the backups root.
+    """
+    if not backup_id or "/" in backup_id or "\\" in backup_id or backup_id in (".", ".."):
+        raise ValueError("invalid backup_id")
+    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    return BACKUPS_DIR / backup_id / "data.bin"
+
+
 async def upload_channel(request: Request) -> Response:
     """POST /upload/{channel_id} — stream the body onto the NAS."""
     channel_id = request.path_params["channel_id"]
@@ -203,6 +217,56 @@ async def download_channel(request: Request) -> Response:
     )
 
 
+async def upload_backup(request: Request) -> Response:
+    """POST /backup/{backup_id} — stream the body straight onto a backup's data.bin.
+
+    Mirrors ``upload_channel`` but targets ``backups/<id>/data.bin`` so a
+    large backup streams directly to its final location (no channel
+    staging / copy). The manifest is written separately by
+    ``backup.create``; here we only fill the data file.
+    """
+    backup_id = request.path_params["backup_id"]
+    try:
+        target = _backup_data_path(backup_id)
+    except ValueError:
+        return JSONResponse({"error": "invalid backup_id"}, status_code=400)
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    total = 0
+    with target.open("wb") as f:
+        async for chunk in request.stream():
+            f.write(chunk)
+            total += len(chunk)
+    return JSONResponse({"status": "stored", "backup_id": backup_id, "size_bytes": total})
+
+
+async def download_backup(request: Request) -> Response:
+    """GET /backup/{backup_id} — stream a backup's data.bin back to the caller."""
+    backup_id = request.path_params["backup_id"]
+    try:
+        target = _backup_data_path(backup_id)
+    except ValueError:
+        return JSONResponse({"error": "invalid backup_id"}, status_code=400)
+
+    if not target.is_file():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    size = target.stat().st_size
+
+    async def _iter() -> "AsyncIterator[bytes]":
+        with target.open("rb") as f:
+            while True:
+                buf = f.read(_CHUNK)
+                if not buf:
+                    break
+                yield buf
+
+    return StreamingResponse(
+        _iter(),
+        media_type="application/octet-stream",
+        headers={"Content-Length": str(size)},
+    )
+
+
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
@@ -218,6 +282,8 @@ def create_app(allowed_ip: str | None = None) -> Starlette:
     routes = [
         Route("/upload/{channel_id}", upload_channel, methods=["POST"]),
         Route("/download/{channel_id}", download_channel, methods=["GET"]),
+        Route("/backup/{backup_id}", upload_backup, methods=["POST"]),
+        Route("/backup/{backup_id}", download_backup, methods=["GET"]),
     ]
     middleware = [Middleware(SourceIPAllowlistMiddleware, allowed_ip=allowed_ip)]
     return Starlette(routes=routes, middleware=middleware)

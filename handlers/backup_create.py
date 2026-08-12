@@ -30,6 +30,7 @@ from _common import _emit, _fail, _read_payload, _require  # noqa: E402
 from backup_common import (  # noqa: E402
     backup_dir,
     new_manifest,
+    open_backup_bridge_route,
     read_manifest,
     write_manifest,
 )
@@ -60,7 +61,31 @@ def main() -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
     data_file = target_dir / "data.bin"
 
-    if "data_base64" in payload:
+    bridge_mode = payload.get("mode") == "bridge"
+    if bridge_mode:
+        # Bridge mode: open a temp route so the caller streams the large
+        # backup straight onto backups/<id>/data.bin (no artifact staging,
+        # no RAM load). The manifest is minted now; the data file is filled
+        # by the caller's POST to the returned upload_url.
+        data_file = target_dir / "data.bin"
+        data_file.parent.mkdir(parents=True, exist_ok=True)
+        upload_url = open_backup_bridge_route(
+            backup_id,
+            method="POST",
+            description="backup.create bridge upload (T-154)",
+        )
+        write_manifest(backup_id, manifest)
+        _emit(
+            {
+                "status": "created",
+                "backup_id": backup_id,
+                "path": f"backups/{backup_id}",
+                "type": btype,
+                "mode": "bridge",
+                "upload_url": upload_url,
+            }
+        )
+    elif "data_base64" in payload:
         try:
             data = base64.b64decode(payload["data_base64"])
         except Exception as exc:  # noqa: BLE001

@@ -103,3 +103,71 @@ def new_manifest(source: str, btype: str, base_backup_id: str | None = None) -> 
         "retention": None,
         "status": "active",
     }
+
+
+def open_backup_bridge_route(
+    backup_id: str,
+    *,
+    method: str,
+    description: str,
+    ttl_seconds: int = 3600,
+) -> str:
+    """Register a temp bridge route on the relay for a backup's data.bin.
+
+    Used by ``backup.create`` (``method="POST"`` → upload_url) and
+    ``backup.restore`` (``method="GET"`` → download_url). The route points
+    at this node's bridge server ``/backup/{backup_id}`` (T-129 proxy) so
+    the caller streams straight onto/from ``backups/<id>/data.bin`` with no
+    channel staging.
+
+    Returns the public URL the caller should use.
+    """
+    import json as _json
+
+    import httpx  # noqa: PLC0415
+
+    base_url = os.environ.get("RELAY_BASE_URL", "")
+    token_file = os.environ.get("RELAY_TOKEN_FILE", "")
+    node_id = os.environ.get("RELAY_NODE_ID", "")
+    if not base_url or not token_file or not node_id:
+        _fail("backup bridge route requires RELAY_BASE_URL, RELAY_TOKEN_FILE, RELAY_NODE_ID")
+
+    from _common import _bridge_upstream_base  # noqa: PLC0415
+
+    token = ""
+    try:
+        token = Path(token_file).read_text().strip()
+    except OSError as exc:
+        _fail(f"cannot read RELAY_TOKEN_FILE: {exc}")
+    if token.startswith("{"):
+        try:
+            token = _json.loads(token).get("token", token)
+        except _json.JSONDecodeError:
+            pass
+
+    upstream_base = _bridge_upstream_base()
+    upstream = f"{upstream_base}/backup/{backup_id}"
+    path = f"/backup/{backup_id}"
+
+    url = f"{base_url.rstrip('/')}/relay/v2/dashboard/api/node-routes/register"
+    r = None
+    try:
+        r = httpx.post(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "path": path,
+                "method": method,
+                "upstream": upstream,
+                "ttl_seconds": ttl_seconds,
+                "channel_id": f"bk_{backup_id}",
+                "description": description,
+            },
+            timeout=30,
+        )
+    except httpx.HTTPError as exc:
+        _fail(f"register request failed: {exc}")
+    assert r is not None
+    if r.status_code != 200:
+        _fail(f"register failed ({r.status_code}): {r.text}")
+    return f"{base_url.rstrip('/')}/relay/v2/dashboard/api/node-routes/{node_id}{path}"
