@@ -37,6 +37,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
+# Reuse the handlers' shared helpers (they live in the handlers/ subdir).
+import sys as _sys
+
+_sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "handlers"))
+from _common import _safe_filename  # noqa: E402
+
 log = logging.getLogger("bridge-server")
 
 # Base directory for channel files (under the storage tree).
@@ -140,11 +146,12 @@ class SourceIPAllowlistMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 
 
-def _channel_path(channel_id: str) -> Path:
-    """Resolve the on-disk path for a channel file.
+def _channel_dir(channel_id: str) -> Path:
+    """Resolve the on-disk directory for a channel.
 
-    The channel_id is used directly as a single path segment (it is a
-    server-minted opaque id) and placed under ``channels/``. We reject
+    Each channel gets its own directory under ``channels/`` so the
+    original filename can be preserved alongside the opaque channel id
+    (T-162). The channel_id is used as a single path segment; we reject
     any id that is not a plain filename so a crafted id cannot escape
     the channels dir.
     """
@@ -168,13 +175,22 @@ def _backup_data_path(backup_id: str) -> Path:
 
 
 async def upload_channel(request: Request) -> Response:
-    """POST /upload/{channel_id} — stream the body onto the NAS."""
+    """POST /upload/{channel_id} — stream the body onto the NAS.
+
+    The caller may pass an ``X-Filename`` header to preserve the original
+    filename (T-162). The file is stored under ``channels/<channel_id>/``
+    so the opaque channel id stays the safe path segment and the real
+    name is kept alongside it. Without a header the file is stored as
+    ``channels/<channel_id>/data.bin``.
+    """
     channel_id = request.path_params["channel_id"]
     try:
-        target = _channel_path(channel_id)
+        chan_dir = _channel_dir(channel_id)
     except ValueError:
         return JSONResponse({"error": "invalid channel_id"}, status_code=400)
 
+    filename = _safe_filename(request.headers.get("x-filename")) or "data.bin"
+    target = chan_dir / filename
     target.parent.mkdir(parents=True, exist_ok=True)
     total = 0
     # Stream the body to disk chunkwise — never hold the whole file in RAM.
@@ -182,19 +198,31 @@ async def upload_channel(request: Request) -> Response:
         async for chunk in request.stream():
             f.write(chunk)
             total += len(chunk)
-    return JSONResponse({"status": "stored", "channel_id": channel_id, "size_bytes": total})
+    return JSONResponse(
+        {"status": "stored", "channel_id": channel_id, "filename": filename, "size_bytes": total}
+    )
 
 
 async def download_channel(request: Request) -> Response:
-    """GET /download/{channel_id} — stream a stored channel file back."""
+    """GET /download/{channel_id} — stream a stored channel file back.
+
+    Returns the stored file (the one uploaded with its original name, or
+    ``data.bin`` when no name was given). The filename is echoed in the
+    ``X-Filename`` response header so the caller can restore it.
+    """
     channel_id = request.path_params["channel_id"]
     try:
-        target = _channel_path(channel_id)
+        chan_dir = _channel_dir(channel_id)
     except ValueError:
         return JSONResponse({"error": "invalid channel_id"}, status_code=400)
 
-    if not target.is_file():
+    if not chan_dir.is_dir():
         return JSONResponse({"error": "not found"}, status_code=404)
+    # Pick the stored file: prefer the named one, else data.bin.
+    candidates = [p for p in chan_dir.iterdir() if p.is_file()]
+    if not candidates:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    target = sorted(candidates)[0]
     size = target.stat().st_size
 
     async def _iter() -> "AsyncIterator[bytes]":
@@ -213,7 +241,7 @@ async def download_channel(request: Request) -> Response:
     return StreamingResponse(
         _iter(),
         media_type="application/octet-stream",
-        headers={"Content-Length": str(size)},
+        headers={"Content-Length": str(size), "X-Filename": target.name},
     )
 
 

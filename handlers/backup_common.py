@@ -102,6 +102,9 @@ def new_manifest(source: str, btype: str, base_backup_id: str | None = None) -> 
         "size_bytes": 0,
         "retention": None,
         "status": "active",
+        # T-162: original filename of the uploaded data (preserved so a
+        # restore can write it back with the right name/suffix).
+        "filename": None,
     }
 
 

@@ -151,3 +151,21 @@ def _note(message: str, kind: str = "info") -> None:
 def _ensure_base() -> None:
     """Create the storage base directory if it does not exist yet."""
     STORAGE_PATH.mkdir(parents=True, exist_ok=True)
+
+
+def _safe_filename(name: str | None) -> str:
+    """Sanitize a caller-supplied filename to a single safe path segment.
+
+    Strips any directory components and control chars so a crafted
+    filename (from an ``X-Filename`` header or a task payload) cannot
+    escape its target directory. Returns an empty string when nothing
+    usable remains (the caller falls back to a default name).
+    """
+    if not name:
+        return ""
+    name = str(name).strip().replace("\\", "/")
+    base = name.rsplit("/", 1)[-1]
+    # Reject empty, dotfiles, and anything with remaining separators.
+    if not base or base in (".", "..") or "/" in base or "\x00" in base:
+        return ""
+    return base

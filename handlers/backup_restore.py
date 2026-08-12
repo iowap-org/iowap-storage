@@ -33,6 +33,9 @@ def main() -> None:
     if not data_file.is_file():
         _fail(f"backup data missing: {backup_id}")
     size = data_file.stat().st_size
+    # T-162: original filename preserved in the manifest (may be None for
+    # backups created before this field existed).
+    filename = manifest.get("filename")
     if size > _INLINE_CAP:
         # Large backup — open a temp bridge route so the caller streams
         # the data.bin directly (no inline base64, no artifact staging).
@@ -48,6 +51,7 @@ def main() -> None:
                 "size_bytes": size,
                 "mode": "bridge",
                 "download_url": download_url,
+                "filename": filename,
             }
         )
     data = data_file.read_bytes()
@@ -57,6 +61,7 @@ def main() -> None:
             "backup_id": backup_id,
             "size_bytes": size,
             "data_base64": base64.b64encode(data).decode(),
+            "filename": filename,
         }
     )
 

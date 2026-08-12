@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _common import _emit, _fail, _read_payload, _require  # noqa: E402
+from _common import _emit, _fail, _read_payload, _require, _safe_filename  # noqa: E402
 from backup_common import (  # noqa: E402
     backup_dir,
     new_manifest,
@@ -56,6 +56,11 @@ def main() -> None:
             _fail(f"base backup not found: {base_backup_id}")
 
     manifest = new_manifest(source, btype, str(base_backup_id) if base_backup_id else None)
+    # T-162: preserve the original filename so a restore can write it back
+    # with the right name/suffix (e.g. ``sims4-save.tar.gz``).
+    filename = _safe_filename(payload.get("filename"))
+    if filename:
+        manifest["filename"] = filename
     backup_id = manifest["backup_id"]
     target_dir = backup_dir(backup_id)
     target_dir.mkdir(parents=True, exist_ok=True)
