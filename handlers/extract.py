@@ -17,7 +17,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from _common import _emit, _fail, _read_payload, _require, _safe_path  # noqa: E402
+from _common import _emit, _fail, _note, _read_payload, _require, _safe_path  # noqa: E402
+
+
+# Report a progress note to the relay every N entries (T-160).
+_PROGRESS_EVERY = 500
 
 
 def main() -> None:
@@ -71,9 +75,13 @@ def _extract_tar(data: bytes, target) -> None:
 
     target.mkdir(parents=True, exist_ok=True)
     resolved_target = target.resolve()
+    _count = 0
     try:
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
             for member in tf.getmembers():
+                _count += 1
+                if _count % _PROGRESS_EVERY == 0:
+                    _note(f"storage.extract: {_count} entries extracted")
                 if member.name.startswith("/") or ".." in member.name.split("/"):
                     _fail(f"archive entry escapes target: {member.name}")
                 dest = (resolved_target / member.name).resolve()
@@ -91,6 +99,7 @@ def _extract_tar(data: bytes, target) -> None:
                     if f is not None:
                         with dest.open("wb") as out:
                             out.write(f.read())
+            _note(f"storage.extract: done, {_count} entries")
     except tarfile.TarError as exc:
         _fail(f"invalid tar.gz: {exc}")
 

@@ -166,7 +166,7 @@ capabilities:
     timeout: 300
     long_run: true
     type: native
-    description: "Pack a directory into a .tar.gz (T-135)."
+    description: "Pack a directory into a .tar.gz (T-135). Reports progress via task notes (T-160)."
     input_schema:
       fields:
         path:

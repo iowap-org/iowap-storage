@@ -109,6 +109,45 @@ def _require(payload: dict[str, Any], key: str) -> Any:
     return payload[key]
 
 
+def _note(message: str, kind: str = "info") -> None:
+    """Best-effort progress note to the relay (T-154/T-160).
+
+    Reads the task context from the environment (set by ``node_daemon``
+    when it launches the handler: ``RELAY_TASK_ID``, ``RELAY_BASE_URL``,
+    ``RELAY_TOKEN_FILE``). Sends ``POST /relay/v2/scheduler/tasks/{id}/notes``
+    with a Bearer token. Every note resets the Long-Run stage TTL on the
+    relay, so a long archive/extract that reports progress keeps its
+    2h lease alive.
+
+    Fully fail-tolerant: any missing env, HTTP error or exception is
+    swallowed — a progress note must never block or fail the pack. Without
+    a ``RELAY_TASK_ID`` this is a silent no-op (e.g. local handler runs).
+    """
+    task_id = os.environ.get("RELAY_TASK_ID", "").strip()
+    base_url = os.environ.get("RELAY_BASE_URL", "").strip()
+    token_file = os.environ.get("RELAY_TOKEN_FILE", "").strip()
+    if not task_id or not base_url or not token_file:
+        return
+    try:
+        token = Path(token_file).read_text().strip()
+        if token.startswith("{"):
+            token = json.loads(token).get("token", token)
+    except (OSError, json.JSONDecodeError):
+        return
+    try:
+        import httpx  # noqa: PLC0415
+
+        url = f"{base_url.rstrip('/')}/relay/v2/scheduler/tasks/{task_id}/notes"
+        httpx.post(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            json={"message": message, "kind": kind},
+            timeout=15,
+        )
+    except Exception:  # noqa: BLE001 — best-effort, never break the pack
+        pass
+
+
 def _ensure_base() -> None:
     """Create the storage base directory if it does not exist yet."""
     STORAGE_PATH.mkdir(parents=True, exist_ok=True)
