@@ -52,7 +52,10 @@ COPY --chown=appuser:appuser docker/nodes/storage/docker-entrypoint-storage.sh /
 
 # Publish the storage profile on startup so node.yaml carries the storage
 # capabilities, and tell the base entrypoint the node role is "service".
-ENV NODE_PROFILE=storage \
+# Default NODE_NAME so the node shows up as "storage-node" in the dashboard
+# instead of the container hostname (which may be an opaque container id).
+ENV NODE_NAME=storage-node \
+    NODE_PROFILE=storage \
     NODE_ROLE=service \
     BRIDGE_PORT=8791
 
