@@ -30,6 +30,7 @@ capabilities:
     timeout: 300
     type: native
     description: "Write a file to the NAS. Supports inline base64 data or streaming a relay artifact. Optionally unpack a .tar.gz (action: extract)."
+    upload_modes: [inline, artifact, bridge]
     input_schema:
       fields:
         path:
@@ -60,6 +61,7 @@ capabilities:
     timeout: 300
     type: native
     description: "Read a file back from the NAS as base64 (small files)."
+    upload_modes: [inline, bridge]
     input_schema:
       fields:
         path:
@@ -226,6 +228,7 @@ capabilities:
     timeout: 3600
     type: native
     description: "Declare an upload as a versioned backup (full or incremental)."
+    upload_modes: [inline, artifact, bridge]
     input_schema:
       fields:
         mode:
@@ -301,6 +304,7 @@ capabilities:
     timeout: 300
     type: native
     description: "Return a backup's data — inline base64 for small backups, or a temp bridge download_url for large ones (>10MB)."
+    upload_modes: [inline, bridge]
     input_schema:
       fields:
         backup_id:
