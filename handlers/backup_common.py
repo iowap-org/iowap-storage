@@ -1,6 +1,6 @@
 """Shared helpers for the storage node backup handlers (T-130/T-131/T-132).
 
-Imported by every ``docker/nodes/storage/handlers/backup_*.py`` script. Provides
+Imported by every ``handlers/backup_*.py`` script. Provides
 the JSON-manifest model (one manifest per backup, next to the data — see
 DECISIONS 2026-08-06), backup-id minting, path resolution and manifest
 read/write helpers. Reuses ``_common._safe_path`` for traversal safety.

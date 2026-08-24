@@ -1,6 +1,6 @@
 """Shared helpers for the storage handlers (T-127).
 
-Imported by every ``docker/nodes/storage/handlers/*.py`` script. Provides the
+Imported by every ``handlers/*.py`` script. Provides the
 ``_safe_path`` path-traversal guard (ported byte-for-byte from the legacy
 ``storage_node.py`` — see REFERENCE_safe_path.md), stdin/stdout JSON
 helpers and a small ``_emit``/``_fail`` pair that respects the

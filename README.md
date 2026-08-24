@@ -4,17 +4,29 @@
 
 A ready-to-run Docker image that provides file storage, archiving, and backup capabilities. Deploy on your NAS or any server with disk space.
 
-## Quick Start
+## Running with Docker
+
+The storage node runs as a Docker container. Build instructions and compose files are in **[iowap-org/iowap-docker](https://github.com/iowap-org/iowap-docker)**:
 
 ```bash
-docker run -d --name iowap-storage \
-  -e RELAY_URL=http://your-relay-server:8788 \
-  -e NODE_NAME=my-storage \
-  -v /path/to/storage:/storage \
-  ghcr.io/iowap-org/iowap-storage:latest
+# 1. Build base image (one-time)
+docker build -t iowap-node-base -f base/Dockerfile https://github.com/iowap-org/iowap-docker.git
+
+# 2. Build storage image
+docker build -t iowap-storage -f storage/Dockerfile https://github.com/iowap-org/iowap-docker.git
+
+# 3. Run
+RELAY_URL=http://your-relay:8788 docker compose -f storage/docker-compose.yml up -d
 ```
 
-Then approve the node on your relay dashboard. It will heartbeat the following capabilities:
+## Quick Start (manual)
+
+You can run the handlers directly for testing:
+
+```bash
+# Source the environment and run a handler directly
+echo '{"args": {}}' | python3 handlers/list.py
+```
 
 | Capability | Description |
 |------------|-------------|
@@ -48,9 +60,7 @@ See `docs/qnap-storage-node.md` for QNAP-specific setup (Container Station, volu
 
 ## Building
 
-```bash
-docker build -t iowap-storage .
-```
+The handlers and Python source are designed to run inside the **iowap-node-base** container. See [iowap-docker](https://github.com/iowap-org/iowap-docker) for the Dockerfiles.
 
 ## Docs
 

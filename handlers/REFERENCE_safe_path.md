@@ -4,7 +4,7 @@
 # which ports the path-traversal guard from the legacy nodes/storage-node/
 # storage_node.py (deleted in T-121) into the new storage handlers.
 #
-# The new handlers (docker/nodes/storage/handlers/*.py) MUST resolve every
+# The new handlers (handlers/*.py) MUST resolve every
 # caller-supplied path relative to /storage and reject anything that
 # escapes the base after resolving symlinks and ``..`` segments.
 # Keep this logic byte-for-byte; it is the security boundary.
