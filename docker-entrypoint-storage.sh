@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI-Relay-Service — storage node entrypoint (T-128).
+# IOWAP — storage node entrypoint (T-128).
 #
 # Starts the bridge server (T-128) in the background, then chains into
 # the base image's docker-entrypoint.sh which sets up relay_config.json

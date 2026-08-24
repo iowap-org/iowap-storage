@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# AI-Relay-Service — Storage service node image (T-120).
+# IOWAP — Storage service node image (T-120).
 #
 # Builds ``FROM ai-relay-node-base`` and only adds the storage node's
 # ``node.yaml`` (capability declarations) + ``handlers/`` directory. The
@@ -20,7 +20,7 @@
 # The base image name. Override with --build-arg NODE_BASE_IMAGE=... when
 # a different registry/tag is used. Default matches what `docker build -t
 # ai-relay-node-base ...` produces locally.
-ARG NODE_BASE_IMAGE=ai-relay-node-base:latest
+ARG NODE_BASE_IMAGE=iowap-node-base:latest
 FROM ${NODE_BASE_IMAGE}
 
 # The storage node serves its bridge-route upstream on this port (the relay

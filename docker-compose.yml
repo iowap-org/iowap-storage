@@ -1,4 +1,4 @@
-# AI-Relay-Service — storage node example compose (T-120).
+# IOWAP — storage node example compose (T-120).
 #
 # Runs the storage service node against an *external* relay (the relay is
 # not spun up here — point RELAY_URL at your running relay, e.g. the one from
@@ -6,14 +6,14 @@
 # image built; this compose builds it on the fly if you prefer, but the
 # canonical flow is:
 #
-#   1. docker build -t ai-relay-node-base  -f docker/nodes/base/Dockerfile   .
-#   2. docker build -t ai-relay-storage    -f docker/nodes/storage/Dockerfile .
+#   1. docker build -t iowap-node-base  -f docker/nodes/base/Dockerfile   .
+#   2. docker build -t iowap-storage    -f docker/nodes/storage/Dockerfile .
 #   3. docker compose -f docker/nodes/storage/docker-compose.yml up -d
 #
 # The node registers on first start (status=pending) — approve it via the
 # relay dashboard or `relay-recovery admin approve-node <node_id>`.
 
-name: ai-relay-storage
+name: iowap-storage
 
 services:
   storage-node:
@@ -23,9 +23,9 @@ services:
       args:
         # Override when the base image lives in a registry. Default is the
         # local tag produced by `docker build -t ai-relay-node-base ...`.
-        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-ai-relay-node-base:latest}
-    image: ai-relay-storage:local
-    container_name: ai-relay-storage
+        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-iowap-node-base:latest}
+    image: iowap-storage:local
+    container_name: iowap-storage
     restart: unless-stopped
     environment:
       # Relay URL — REQUIRED. Point this at your running relay.
@@ -57,7 +57,7 @@ services:
     # docker network. Join the relay's network or set up an external one.
     # networks:
     #   - default
-    #   - ai-relay_default
+    #   - iowap_default
 
 volumes:
   storage-state:
