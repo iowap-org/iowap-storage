@@ -52,6 +52,13 @@ See `docs/qnap-storage-node.md` for QNAP-specific setup (Container Station, volu
 docker build -t iowap-storage .
 ```
 
+## Docs
+
+Full documentation in [iowap-org/iowap-docs](https://github.com/iowap-org/iowap-docs):
+
+- `docs/storage/storage.md` — storage capabilities & bridge mode
+- `docs/storage/qnap-storage-node.md` — QNAP deployment
+
 ## License
 
 AGPL-3.0
